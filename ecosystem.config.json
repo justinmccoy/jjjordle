@@ -1,0 +1,17 @@
+{
+  "apps": [
+    {
+      "name": "wordle",
+      "script": "index.js",
+      "cwd": "/srv/wordle/server",
+      "instances": 1,
+      "autorestart": true,
+      "watch": false,
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": "3001"
+      },
+      "env_file": "/srv/wordle/server/.env"
+    }
+  ]
+}
