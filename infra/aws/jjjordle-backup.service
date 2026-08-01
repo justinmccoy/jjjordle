@@ -1,0 +1,26 @@
+# /etc/systemd/system/jjjordle-backup.service
+#
+# Runs infra/backup.sh once. Triggered by jjjordle-backup.timer.
+#
+# Inspect: systemctl status jjjordle-backup.service
+# Logs:    journalctl -u jjjordle-backup.service
+# Run now: sudo systemctl start jjjordle-backup.service
+
+[Unit]
+Description=jjjordle nightly backup (.env + client/dist -> S3)
+After=network-online.target
+Requires=network-online.target
+
+[Service]
+Type=oneshot
+User=ec2-user
+Group=ec2-user
+EnvironmentFile=/etc/jjjordle-backup.env
+WorkingDirectory=/srv/wordle
+ExecStart=/srv/wordle/infra/backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target
