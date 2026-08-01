@@ -81,7 +81,7 @@ function Toast({ messages }) {
 }
 
 // ─── Overlay ─────────────────────────────────────────────────────────────────
-function Overlay({ show, eyebrow, sentenceHTML, won, onClose }) {
+function Overlay({ show, eyebrow, sentenceHTML, won, onClose, onRetry }) {
   const closeRef = useRef(null);
   useEffect(() => {
     if (show && closeRef.current) closeRef.current.focus();
@@ -102,13 +102,25 @@ function Overlay({ show, eyebrow, sentenceHTML, won, onClose }) {
             <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
           </svg>
         </button>
-        <p className="reveal-eyebrow">{eyebrow}</p>
-        <p
-          className="reveal-sentence"
-          id="reveal-text"
-          dangerouslySetInnerHTML={{ __html: sentenceHTML }}
-        />
-        {won && <img src="/jj.png" alt="JJ" className="win-photo" />}
+        {won ? (
+          <>
+            <p className="reveal-eyebrow">{eyebrow}</p>
+            <p
+              className="reveal-sentence"
+              id="reveal-text"
+              dangerouslySetInnerHTML={{ __html: sentenceHTML }}
+            />
+            <img src="/jj.png" alt="JJ" className="win-photo" />
+          </>
+        ) : (
+          <>
+            <p className="reveal-eyebrow">Out of guesses</p>
+            <p className="reveal-sentence" id="reveal-text">
+              So close! Give it another shot.
+            </p>
+            <button className="comp-admire retry-btn" onClick={onRetry}>Try Again</button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -222,6 +234,10 @@ function saveState(sessionKey, data) {
 
 function loadState(sessionKey) {
   try { return JSON.parse(localStorage.getItem(LS_PREFIX + sessionKey)); } catch (_) { return null; }
+}
+
+function clearState(sessionKey) {
+  try { localStorage.removeItem(LS_PREFIX + sessionKey); } catch (_) {}
 }
 
 // ─── App ─────────────────────────────────────────────────────────────────────
@@ -339,15 +355,20 @@ export default function App() {
     setGameWon(saved.won || false);
     // "sentencePanel" is the legacy key from saves made before the completion screen
     const wasCompleted = saved.completion || saved.sentencePanel || false;
-    setFinished(wasCompleted);
-    setCompletionOpen(wasCompleted);
 
-    if (saved.over) {
+    if (saved.over && saved.won) {
+      setFinished(wasCompleted);
+      setCompletionOpen(wasCompleted);
       // If the game ended but the reveal was never acknowledged (e.g. the tab
       // closed before dismissing it), reopen the overlay so the flow resumes.
       fetchReveal().then(() => {
         if (!wasCompleted) setOverlay(true);
       });
+    } else if (saved.over) {
+      // Lost game: come back to the try-again prompt. No reveal fetch — the
+      // answer stays secret so the retry is a fair attempt.
+      setFinished(true);
+      setOverlay(true);
     }
   }, [sessionKey, fetchReveal]);
 
@@ -355,7 +376,10 @@ export default function App() {
   const endGame = useCallback((won, delay, ri, rowLetters, rowStates) => {
     setOver(true);
     if (won) setGameWon(true);
-    fetchReveal().then(() => {
+    // On a loss the reveal is never fetched: the answer stays secret so the
+    // player can retry the puzzle fresh.
+    const ready = won ? fetchReveal() : Promise.resolve();
+    ready.then(() => {
       setTimeout(() => setOverlay(true), delay);
     });
     if (won) {
@@ -566,6 +590,7 @@ export default function App() {
   const closeReveal = () => {
     setOverlay(false);
     setFinished(true);
+    if (!gameWon) return; // loss: back to the board, where "Try again" waits
     setCompletionOpen(true);
     // Persist that the puzzle has been completed and acknowledged
     const key = sessionKeyRef.current;
@@ -576,6 +601,24 @@ export default function App() {
   };
 
   const admirePuzzle = () => setCompletionOpen(false);
+
+  // Fresh board for another attempt after a loss
+  const resetGame = () => {
+    setGrid(Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => ({ letter: "", state: "empty" }))));
+    setRowAnims(Array(ROWS).fill(null));
+    setCurrent("");
+    setRowIndex(0);
+    setLocked(false);
+    setOver(false);
+    setKeyStates({});
+    setOverlay(false);
+    setCompletionOpen(false);
+    setResultsOpen(false);
+    setFinished(false);
+    setGameWon(false);
+    const key = sessionKeyRef.current;
+    if (key) clearState(key);
+  };
 
   const onResultsCopied = ok => {
     showToast(ok ? "Copied results to clipboard" : "Couldn't copy — try again", 1500);
@@ -593,7 +636,7 @@ export default function App() {
     <div id="game">
       <header>
         <div className="title">JJJORDLE</div>
-        {over && finished && (
+        {over && finished && gameWon && (
           <button
             className="board-close-x"
             aria-label="Back to completion screen"
@@ -634,7 +677,11 @@ export default function App() {
 
       {over && finished ? (
         <div id="postgame-actions">
-          <button className="postgame-btn" onClick={() => setResultsOpen(true)}>See results</button>
+          {gameWon ? (
+            <button className="postgame-btn" onClick={() => setResultsOpen(true)}>See results</button>
+          ) : (
+            <button className="postgame-btn" onClick={resetGame}>Try again</button>
+          )}
         </div>
       ) : (
         <Keyboard keyStates={keyStates} onKey={handleKey} />
@@ -648,6 +695,7 @@ export default function App() {
         sentenceHTML={reveal.sentenceHTML}
         won={gameWon}
         onClose={closeReveal}
+        onRetry={resetGame}
       />
 
       <CompletionScreen
