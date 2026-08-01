@@ -160,7 +160,11 @@ function CompletionScreen({ show, sentenceHTML, won, onAdmire, onSeeResults }) {
         <button className="comp-admire" onClick={onAdmire}>Admire Puzzle</button>
         <button className="comp-results" onClick={onSeeResults}>Share Results</button>
 
-        <p className="comp-date">{dateStr}</p>
+        <div className="comp-masthead">
+          <p className="comp-date">{dateStr}</p>
+          <p className="comp-masthead-num">No. 1</p>
+          <p className="comp-masthead-editor">Edited by JJJ</p>
+        </div>
       </div>
     </div>
   );
