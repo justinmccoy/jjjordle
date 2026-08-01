@@ -345,7 +345,11 @@ export default function App() {
     setCompletionOpen(wasCompleted);
 
     if (saved.over) {
-      fetchReveal();
+      // If the game ended but the reveal was never acknowledged (e.g. the tab
+      // closed before dismissing it), reopen the overlay so the flow resumes.
+      fetchReveal().then(() => {
+        if (!wasCompleted) setOverlay(true);
+      });
     }
   }, [sessionKey, fetchReveal]);
 
@@ -617,7 +621,13 @@ export default function App() {
         </div>
       </div>
 
-      <Keyboard keyStates={keyStates} onKey={handleKey} />
+      {over && finished ? (
+        <div id="postgame-actions">
+          <button className="postgame-btn" onClick={() => setResultsOpen(true)}>See results</button>
+        </div>
+      ) : (
+        <Keyboard keyStates={keyStates} onKey={handleKey} />
+      )}
 
       <Toast messages={toasts} />
 
