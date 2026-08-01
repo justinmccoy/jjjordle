@@ -81,7 +81,7 @@ function Toast({ messages }) {
 }
 
 // ─── Overlay ─────────────────────────────────────────────────────────────────
-function Overlay({ show, eyebrow, sentenceHTML, onClose }) {
+function Overlay({ show, eyebrow, sentenceHTML, won, onClose }) {
   const closeRef = useRef(null);
   useEffect(() => {
     if (show && closeRef.current) closeRef.current.focus();
@@ -108,17 +108,19 @@ function Overlay({ show, eyebrow, sentenceHTML, onClose }) {
           id="reveal-text"
           dangerouslySetInnerHTML={{ __html: sentenceHTML }}
         />
+        {won && <img src="/jj.png" alt="JJ" className="win-photo" />}
       </div>
     </div>
   );
 }
 
 // ─── Sentence Panel ──────────────────────────────────────────────────────────
-function SentencePanel({ show, eyebrow, sentenceHTML }) {
+function SentencePanel({ show, eyebrow, sentenceHTML, won }) {
   return (
     <div id="sentence-panel" className={show ? "show" : ""}>
       <p className="reveal-eyebrow">{eyebrow}</p>
       <p className="reveal-sentence" dangerouslySetInnerHTML={{ __html: sentenceHTML }} />
+      {won && <img src="/jj.png" alt="JJ" className="win-photo" />}
     </div>
   );
 }
@@ -139,6 +141,7 @@ export default function App() {
   const [overlayOpen, setOverlay]   = useState(false);
   const [sentencePanel, setSentencePanel] = useState(false);
   const [reveal, setReveal]         = useState({ eyebrow: "", sentenceHTML: "" });
+  const [gameWon, setGameWon]       = useState(false);
 
   // stable refs to avoid stale closures in keydown handler
   const stateRef = useRef({});
@@ -199,6 +202,7 @@ export default function App() {
   // ── End game ───────────────────────────────────────────────────────────────
   const endGame = useCallback((won, delay, ri, rowLetters, rowStates) => {
     setOver(true);
+    if (won) setGameWon(true);
     fetchReveal().then(() => {
       setTimeout(() => setOverlay(true), delay);
     });
@@ -365,7 +369,7 @@ export default function App() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div id="game">
-      <header><div className="title">Wordle</div></header>
+      <header><div className="title">JJJORDLE</div></header>
 
       <div id="board-container">
         <div id="board" role="group" aria-label="Guess grid">
@@ -399,6 +403,7 @@ export default function App() {
         show={sentencePanel}
         eyebrow={reveal.eyebrow}
         sentenceHTML={reveal.sentenceHTML}
+        won={gameWon}
       />
 
       <Toast messages={toasts} />
@@ -407,6 +412,7 @@ export default function App() {
         show={overlayOpen}
         eyebrow={reveal.eyebrow}
         sentenceHTML={reveal.sentenceHTML}
+        won={gameWon}
         onClose={closeReveal}
       />
     </div>

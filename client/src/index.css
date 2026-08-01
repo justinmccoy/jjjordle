@@ -256,6 +256,16 @@ button svg { width: 20px; height: 20px; fill: currentColor; }
 #sentence-panel .reveal-eyebrow { margin-bottom: 10px; }
 #sentence-panel p.reveal-sentence { font-size: clamp(15px, 4vw, 18px); max-width: 360px; }
 
+/* ── Win photo ──────────────────────────────────────────── */
+.win-photo {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  margin: 16px auto 0;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
 /* ── Animations ─────────────────────────────────────────── */
 @keyframes PopIn {
   from { transform: scale(.8); opacity: 0; }

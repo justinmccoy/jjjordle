@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "name": "wordle",
+      "name": "jjjordle",
       "script": "index.js",
       "cwd": "/srv/wordle/server",
       "instances": 1,
