@@ -29,19 +29,19 @@ dev:
 	@echo "  npm run dev:client   (http://localhost:5173)"
 
 deploy: build
-	$(PM2) restart wordle
+	$(PM2) restart jjjordle
 
 deploy-full: install build
-	$(PM2) restart wordle
+	$(PM2) restart jjjordle
 
 logs:
-	$(PM2) logs wordle
+	$(PM2) logs jjjordle
 
 status:
 	$(PM2) list
 
 restart:
-	$(PM2) restart wordle
+	$(PM2) restart jjjordle
 
 stop:
-	$(PM2) stop wordle
+	$(PM2) stop jjjordle
