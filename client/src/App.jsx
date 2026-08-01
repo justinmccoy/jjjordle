@@ -117,7 +117,7 @@ function Overlay({ show, eyebrow, sentenceHTML, won, onClose }) {
 // ─── Completion Screen ───────────────────────────────────────────────────────
 const LOGO_PATTERN = ["w", "w", "w", "w", "y", "g", "g", "g", "w"];
 
-function CompletionScreen({ show, eyebrow, sentenceHTML, won, onAdmire, onSeeResults }) {
+function CompletionScreen({ show, sentenceHTML, won, onAdmire, onSeeResults }) {
   if (!show) return null;
 
   const dateStr = new Date().toLocaleDateString("en-US", {
@@ -139,9 +139,7 @@ function CompletionScreen({ show, eyebrow, sentenceHTML, won, onAdmire, onSeeRes
 
       <div className="comp-body">
         <h1 className="comp-title" id="completion-title">Hi JJJordler</h1>
-        <p className="comp-subtitle">Great job on today&rsquo;s puzzle! Check out your progress.</p>
 
-        {eyebrow && <p className="reveal-eyebrow">{eyebrow}</p>}
         {sentenceHTML && (
           <p className="reveal-sentence" dangerouslySetInnerHTML={{ __html: sentenceHTML }} />
         )}
@@ -641,7 +639,6 @@ export default function App() {
 
       <CompletionScreen
         show={completionOpen}
-        eyebrow={reveal.eyebrow}
         sentenceHTML={reveal.sentenceHTML}
         won={gameWon}
         onAdmire={admirePuzzle}
