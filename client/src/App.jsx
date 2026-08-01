@@ -695,13 +695,11 @@ export default function App() {
       </div>
 
       {over && finished ? (
-        <div id="postgame-actions">
-          {gameWon ? (
-            <button className="postgame-btn" onClick={() => setResultsOpen(true)}>See results</button>
-          ) : (
+        !gameWon && (
+          <div id="postgame-actions">
             <button className="postgame-btn" onClick={resetGame}>Try again</button>
-          )}
-        </div>
+          </div>
+        )
       ) : (
         <Keyboard keyStates={keyStates} onKey={handleKey} />
       )}
