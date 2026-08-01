@@ -114,13 +114,43 @@ function Overlay({ show, eyebrow, sentenceHTML, won, onClose }) {
   );
 }
 
-// ─── Sentence Panel ──────────────────────────────────────────────────────────
-function SentencePanel({ show, eyebrow, sentenceHTML, won }) {
+// ─── Completion Screen ───────────────────────────────────────────────────────
+const LOGO_PATTERN = ["w", "w", "w", "w", "y", "g", "g", "g", "w"];
+
+function CompletionScreen({ show, eyebrow, sentenceHTML, won, onAdmire }) {
+  if (!show) return null;
+
+  const dateStr = new Date().toLocaleDateString("en-US", {
+    month: "long", day: "numeric", year: "numeric",
+  });
+
   return (
-    <div id="sentence-panel" className={show ? "show" : ""}>
-      <p className="reveal-eyebrow">{eyebrow}</p>
-      <p className="reveal-sentence" dangerouslySetInnerHTML={{ __html: sentenceHTML }} />
-      {won && <img src="/jj.png" alt="JJ" className="win-photo" />}
+    <div id="completion-screen" role="dialog" aria-labelledby="completion-title">
+      <button className="comp-back" aria-label="Back to puzzle" onClick={onAdmire}>
+        <svg viewBox="0 0 24 24">
+          <path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+        </svg>
+      </button>
+
+      <div className="comp-logo" aria-hidden="true">
+        {LOGO_PATTERN.map((c, i) => <span key={i} className={c} />)}
+      </div>
+      <div className="comp-brand">JJJordle</div>
+
+      <div className="comp-body">
+        <h1 className="comp-title" id="completion-title">Hi JJJordler</h1>
+        <p className="comp-subtitle">Great job on today&rsquo;s puzzle! Check out your progress.</p>
+
+        {eyebrow && <p className="reveal-eyebrow">{eyebrow}</p>}
+        {sentenceHTML && (
+          <p className="reveal-sentence" dangerouslySetInnerHTML={{ __html: sentenceHTML }} />
+        )}
+        {won && <img src="/jj.png" alt="JJ" className="win-photo" />}
+
+        <button className="comp-admire" onClick={onAdmire}>Admire Puzzle</button>
+
+        <p className="comp-date">{dateStr}</p>
+      </div>
     </div>
   );
 }
@@ -150,7 +180,8 @@ export default function App() {
   const [keyStates, setKeyStates]   = useState({});
   const [toasts, setToasts]         = useState([]);
   const [overlayOpen, setOverlay]   = useState(false);
-  const [sentencePanel, setSentencePanel] = useState(false);
+  const [completionOpen, setCompletionOpen] = useState(false);
+  const [finished, setFinished]     = useState(false); // overlay has been closed at least once
   const [reveal, setReveal]         = useState({ eyebrow: "", sentenceHTML: "" });
   const [gameWon, setGameWon]       = useState(false);
   const [sessionKey, setSessionKey] = useState(null);
@@ -205,7 +236,7 @@ export default function App() {
   }, []);
 
   // ── Persist current game state ─────────────────────────────────────────────
-  const persist = useCallback((overrideGrid, overrideRowIndex, overrideKeyStates, overrideOver, overrideWon, overrideSentencePanel) => {
+  const persist = useCallback((overrideGrid, overrideRowIndex, overrideKeyStates, overrideOver, overrideWon, overrideCompletion) => {
     const key = sessionKeyRef.current;
     if (!key) return;
     saveState(key, {
@@ -214,7 +245,7 @@ export default function App() {
       keyStates: overrideKeyStates,
       over: overrideOver,
       won: overrideWon,
-      sentencePanel: overrideSentencePanel,
+      completion: overrideCompletion,
     });
   }, []);
 
@@ -247,7 +278,10 @@ export default function App() {
     setKeyStates(saved.keyStates || {});
     setOver(saved.over || false);
     setGameWon(saved.won || false);
-    setSentencePanel(saved.sentencePanel || false);
+    // "sentencePanel" is the legacy key from saves made before the completion screen
+    const wasCompleted = saved.completion || saved.sentencePanel || false;
+    setFinished(wasCompleted);
+    setCompletionOpen(wasCompleted);
 
     if (saved.over) {
       fetchReveal();
@@ -458,21 +492,25 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = e => {
       if (e.key === "Escape" && overlayOpen) closeReveal();
+      else if (e.key === "Escape" && completionOpen) admirePuzzle();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [overlayOpen]);
+  }, [overlayOpen, completionOpen]);
 
   const closeReveal = () => {
     setOverlay(false);
-    setSentencePanel(true);
-    // Persist that the sentence panel is now showing
+    setFinished(true);
+    setCompletionOpen(true);
+    // Persist that the puzzle has been completed and acknowledged
     const key = sessionKeyRef.current;
     if (key) {
       const saved = loadState(key);
-      if (saved) saveState(key, { ...saved, sentencePanel: true });
+      if (saved) saveState(key, { ...saved, completion: true });
     }
   };
+
+  const admirePuzzle = () => setCompletionOpen(false);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -507,13 +545,6 @@ export default function App() {
 
       <Keyboard keyStates={keyStates} onKey={handleKey} />
 
-      <SentencePanel
-        show={sentencePanel}
-        eyebrow={reveal.eyebrow}
-        sentenceHTML={reveal.sentenceHTML}
-        won={gameWon}
-      />
-
       <Toast messages={toasts} />
 
       <Overlay
@@ -522,6 +553,14 @@ export default function App() {
         sentenceHTML={reveal.sentenceHTML}
         won={gameWon}
         onClose={closeReveal}
+      />
+
+      <CompletionScreen
+        show={completionOpen}
+        eyebrow={reveal.eyebrow}
+        sentenceHTML={reveal.sentenceHTML}
+        won={gameWon}
+        onAdmire={admirePuzzle}
       />
     </div>
   );
