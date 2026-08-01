@@ -158,7 +158,7 @@ function CompletionScreen({ show, sentenceHTML, won, onAdmire, onSeeResults }) {
         {won && <img src="/jj.png" alt="JJ" className="win-photo" />}
 
         <button className="comp-admire" onClick={onAdmire}>Admire Puzzle</button>
-        <button className="comp-results" onClick={onSeeResults}>See Results</button>
+        <button className="comp-results" onClick={onSeeResults}>Share Results</button>
 
         <p className="comp-date">{dateStr}</p>
       </div>
