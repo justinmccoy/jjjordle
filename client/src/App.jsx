@@ -96,7 +96,7 @@ function WinPhoto() {
 }
 
 // ─── Overlay ─────────────────────────────────────────────────────────────────
-function Overlay({ show, eyebrow, sentenceHTML, won, onClose, onRetry }) {
+function Overlay({ show, sentenceHTML, won, onClose, onRetry }) {
   const closeRef = useRef(null);
   useEffect(() => {
     if (show && closeRef.current) closeRef.current.focus();
@@ -119,7 +119,6 @@ function Overlay({ show, eyebrow, sentenceHTML, won, onClose, onRetry }) {
         </button>
         {won ? (
           <>
-            <p className="reveal-eyebrow">{eyebrow}</p>
             <p
               className="reveal-sentence"
               id="reveal-text"
@@ -708,7 +707,6 @@ export default function App() {
 
       <Overlay
         show={overlayOpen}
-        eyebrow={reveal.eyebrow}
         sentenceHTML={reveal.sentenceHTML}
         won={gameWon}
         onClose={closeReveal}
