@@ -474,7 +474,7 @@ export default function App() {
           });
           return updated;
         });
-        endGame(true, total + 1200, ri, letters, states);
+        endGame(true, 1200, ri, letters, states);
       } else if (ri === ROWS - 1) {
         showToast("Better luck next time!", 4000);
         setKeyStates(prev => {
