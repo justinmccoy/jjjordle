@@ -339,11 +339,67 @@ button svg { width: 20px; height: 20px; fill: currentColor; }
   cursor: pointer;
 }
 
+.comp-results {
+  background: none;
+  border: none;
+  padding: 4px;
+  margin-top: 12px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-tone-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 .comp-date {
   font-weight: 700;
   font-size: 18px;
   margin: 24px 0 0;
 }
+
+/* ── Results modal ─────────────────────────────────────── */
+#results-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 700;
+}
+
+.results-score {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+
+.results-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.results-row {
+  display: flex;
+  gap: 4px;
+}
+
+.results-row span {
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  background: var(--color-tone-4);
+}
+
+.results-row span[data-state="correct"] { background: var(--green); }
+.results-row span[data-state="present"] { background: var(--yellow); }
+.results-row span[data-state="absent"]  { background: var(--color-tone-2); }
+
+.results-copy { margin-top: 20px; }
 
 /* ── Win photo ──────────────────────────────────────────── */
 .win-photo {

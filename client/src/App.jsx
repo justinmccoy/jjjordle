@@ -117,7 +117,7 @@ function Overlay({ show, eyebrow, sentenceHTML, won, onClose }) {
 // ─── Completion Screen ───────────────────────────────────────────────────────
 const LOGO_PATTERN = ["w", "w", "w", "w", "y", "g", "g", "g", "w"];
 
-function CompletionScreen({ show, eyebrow, sentenceHTML, won, onAdmire }) {
+function CompletionScreen({ show, eyebrow, sentenceHTML, won, onAdmire, onSeeResults }) {
   if (!show) return null;
 
   const dateStr = new Date().toLocaleDateString("en-US", {
@@ -148,8 +148,68 @@ function CompletionScreen({ show, eyebrow, sentenceHTML, won, onAdmire }) {
         {won && <img src="/jj.png" alt="JJ" className="win-photo" />}
 
         <button className="comp-admire" onClick={onAdmire}>Admire Puzzle</button>
+        <button className="comp-results" onClick={onSeeResults}>See Results</button>
 
         <p className="comp-date">{dateStr}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Results modal ───────────────────────────────────────────────────────────
+function resultsShareText(rows, won) {
+  const SQUARES = { correct: "🟩", present: "🟨", absent: "⬛" };
+  const score = won ? String(rows.length) : "X";
+  const gridText = rows
+    .map(states => states.map(s => SQUARES[s] || "⬛").join(""))
+    .join("\n");
+  return `JJJORDLE ${score}/${ROWS}\n\n${gridText}`;
+}
+
+function ResultsModal({ show, rows, won, onClose, onCopied }) {
+  const closeRef = useRef(null);
+  useEffect(() => {
+    if (show && closeRef.current) closeRef.current.focus();
+  }, [show]);
+
+  if (!show) return null;
+
+  const score = won ? String(rows.length) : "X";
+
+  const copyResults = () => {
+    const text = resultsShareText(rows, won);
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => onCopied(true), () => onCopied(false));
+    } else {
+      onCopied(false);
+    }
+  };
+
+  return (
+    <div
+      id="results-overlay"
+      className="show"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="results-title"
+      onClick={e => { if (e.target.id === "results-overlay") onClose(); }}
+    >
+      <div className="reveal-card">
+        <button className="close-x" aria-label="Close" ref={closeRef} onClick={onClose}>
+          <svg viewBox="0 0 24 24">
+            <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+          </svg>
+        </button>
+        <p className="reveal-eyebrow" id="results-title">Results</p>
+        <p className="results-score">{won ? `Solved in ${score}/${ROWS}` : `${score}/${ROWS} — so close!`}</p>
+        <div className="results-grid" aria-hidden="true">
+          {rows.map((states, ri) => (
+            <div key={ri} className="results-row">
+              {states.map((s, ci) => <span key={ci} data-state={s} />)}
+            </div>
+          ))}
+        </div>
+        <button className="comp-admire results-copy" onClick={copyResults}>Copy Results</button>
       </div>
     </div>
   );
@@ -181,6 +241,7 @@ export default function App() {
   const [toasts, setToasts]         = useState([]);
   const [overlayOpen, setOverlay]   = useState(false);
   const [completionOpen, setCompletionOpen] = useState(false);
+  const [resultsOpen, setResultsOpen] = useState(false);
   const [finished, setFinished]     = useState(false); // overlay has been closed at least once
   const [reveal, setReveal]         = useState({ eyebrow: "", sentenceHTML: "" });
   const [gameWon, setGameWon]       = useState(false);
@@ -491,12 +552,14 @@ export default function App() {
   // ── Escape key closes overlay ──────────────────────────────────────────────
   useEffect(() => {
     const onKeyDown = e => {
-      if (e.key === "Escape" && overlayOpen) closeReveal();
-      else if (e.key === "Escape" && completionOpen) admirePuzzle();
+      if (e.key !== "Escape") return;
+      if (resultsOpen) setResultsOpen(false);
+      else if (overlayOpen) closeReveal();
+      else if (completionOpen) admirePuzzle();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [overlayOpen, completionOpen]);
+  }, [overlayOpen, completionOpen, resultsOpen]);
 
   const closeReveal = () => {
     setOverlay(false);
@@ -511,6 +574,17 @@ export default function App() {
   };
 
   const admirePuzzle = () => setCompletionOpen(false);
+
+  const onResultsCopied = ok => {
+    showToast(ok ? "Copied results to clipboard" : "Couldn't copy — try again", 1500);
+  };
+
+  // Committed guess rows (letter states only), for the results modal.
+  // Derived from resolved tile states rather than rowIndex, because rowIndex
+  // does not advance past the game-ending row in-session.
+  const resultRows = grid
+    .filter(row => row.every(c => c.state === "correct" || c.state === "present" || c.state === "absent"))
+    .map(row => row.map(c => c.state));
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -561,6 +635,15 @@ export default function App() {
         sentenceHTML={reveal.sentenceHTML}
         won={gameWon}
         onAdmire={admirePuzzle}
+        onSeeResults={() => setResultsOpen(true)}
+      />
+
+      <ResultsModal
+        show={resultsOpen}
+        rows={resultRows}
+        won={gameWon}
+        onClose={() => setResultsOpen(false)}
+        onCopied={onResultsCopied}
       />
     </div>
   );
