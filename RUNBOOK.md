@@ -23,14 +23,14 @@ the runbook that matches what you need to do.
 
 ## The plan in one paragraph
 
-A single `t4g.small` EC2 instance in `us-east-1` runs nginx (reverse proxy)
-and the Node.js/Express server managed by PM2. The pre-built React client is
-served as static files from `client/dist/` by nginx; all `/api/` requests are
-proxied to the Node process on port 3001. DNS points at an Elastic IP. Access
-is via SSM Session Manager — port 22 is closed. Backups run in two independent
-layers: daily EBS snapshots (fast restore) and nightly logical bundles to an
-S3 bucket (`.env` + built client, KMS-encrypted, lifecycled to Glacier).
-Expected total cost: ~$14–15 / month.
+A single `t4g.small` EC2 instance in `us-east-1` runs Caddy (reverse proxy +
+automatic HTTPS via Let's Encrypt) and the Node.js/Express server managed by
+PM2. The pre-built React client is served as static files from `client/dist/`
+by Caddy; all `/api/` requests are proxied to the Node process on port 3001.
+DNS points at an Elastic IP. Access is via SSM Session Manager — port 22 is
+closed. Backups run in two independent layers: daily EBS snapshots (fast
+restore) and nightly logical bundles to an S3 bucket (`.env` + built client,
+KMS-encrypted, lifecycled to Glacier). Expected total cost: ~$14–15 / month.
 
 ## What this plan is, and isn't
 
@@ -47,12 +47,13 @@ added without re-architecting.
 
 ```
 RUNBOOK.md                              this file — start here
+Caddyfile                               Caddy config (auto-HTTPS + reverse proxy)
 Makefile                                dev, build, and deploy shortcuts
 infra/
   backup.sh                             nightly bundler (.env + client/dist -> S3)
   aws/
     01-account-setup.md                 root lockdown, billing alarms, Identity Center
-    02-deploy.md                        VPC, EC2, EIP, nginx, PM2, DNS, app bring-up
+    02-deploy.md                        VPC, EC2, EIP, Caddy, PM2, DNS, app bring-up
     03-backup.md                        S3 bucket, KMS, DLM snapshots, systemd timer
     04-restore.md                       Scenarios A-C (lost .env / full instance / drill)
     05-operations.md                    deploy, patch, resize, monitor cheatsheet

@@ -8,9 +8,9 @@
 #
 # Targets: Amazon Linux 2023 on arm64 (e.g. t4g.small).
 # Side effects:
-#   - installs Node.js 20, nginx, git, make
+#   - installs Node.js 20, Caddy, git, make
 #   - installs PM2 globally
-#   - enables nginx.service
+#   - enables caddy.service
 #   - turns on dnf-automatic for unattended security updates
 #
 # Idempotent within the same boot; cloud-init won't re-run it on reboot.
@@ -18,9 +18,14 @@
 set -euxo pipefail
 
 dnf update -y
-dnf install -y nodejs npm nginx git make
+dnf install -y nodejs npm git make
 
-systemctl enable nginx
+# Install Caddy from the official COPR repo
+dnf install -y 'dnf-command(copr)' || true
+dnf copr enable -y @caddy/caddy || true
+dnf install -y caddy
+
+systemctl enable caddy
 
 # PM2 process manager for keeping the Node server alive across reboots.
 npm install -g pm2

@@ -5,9 +5,9 @@ to spin up the production host. Re-read on subsequent rebuilds.
 
 **Estimated time:** ~60 minutes (plus DNS propagation).
 
-**Outcome:** A single `t4g.small` EC2 instance running nginx (reverse proxy)
-+ PM2 (Node process manager) + the pre-built React client, reachable at
-your domain, accessible without exposing port 22.
+**Outcome:** A single `t4g.small` EC2 instance running Caddy (reverse proxy +
+automatic HTTPS) + PM2 (Node process manager) + the pre-built React client,
+reachable at your domain over HTTPS, accessible without exposing port 22.
 
 ---
 
@@ -40,10 +40,10 @@ EC2 → Security Groups → Create security group:
 - VPC: default
 - Inbound rules — only these two:
 
-  | Type  | Protocol | Port | Source        | Reason                         |
-  |-------|----------|------|---------------|--------------------------------|
-  | HTTP  | TCP      | 80   | `0.0.0.0/0`   | Site traffic (TLS via Certbot) |
-  | HTTPS | TCP      | 443  | `0.0.0.0/0`   | The actual site                |
+  | Type  | Protocol | Port | Source        | Reason                              |
+  |-------|----------|------|---------------|-------------------------------------|
+  | HTTP  | TCP      | 80   | `0.0.0.0/0`   | ACME HTTP-01 challenge (Let's Encrypt) |
+  | HTTPS | TCP      | 443  | `0.0.0.0/0`   | The actual site (TLS via Caddy)     |
 
   **No port 22.** SSM Session Manager is the access path.
 
@@ -181,22 +181,23 @@ npm install --prefix client
 npm run build --prefix client
 ```
 
-### 6.3 Configure nginx
+### 6.3 Configure Caddy
+
+Edit the domain in the Caddyfile, then install and start it:
 
 ```sh
-sudo cp /srv/wordle/nginx.conf /etc/nginx/conf.d/wordle.conf
-sudo nginx -t         # test the config
-sudo systemctl enable nginx
-sudo systemctl start nginx
+sudo cp /srv/wordle/Caddyfile /etc/caddy/Caddyfile
+# Replace <yourdomain> with your actual domain:
+sudo sed -i 's/<yourdomain>/yourdomain.com/' /etc/caddy/Caddyfile
+
+sudo caddy validate --config /etc/caddy/Caddyfile   # test the config
+sudo systemctl enable caddy
+sudo systemctl start caddy
 ```
 
-If you have a domain with HTTPS, install Certbot and obtain a certificate:
-
-```sh
-sudo dnf install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d <yourdomain>
-# Follow the prompts; Certbot will edit your nginx config automatically.
-```
+Caddy will automatically obtain and renew a Let's Encrypt certificate the first
+time it starts, as long as DNS is already pointing at the instance and ports 80
+and 443 are open.
 
 ### 6.4 Start the Node server with PM2
 
@@ -218,10 +219,10 @@ sudo systemctl status pm2-ec2-user
 
 ## Verify
 
-- [ ] `http://<yourdomain>` or `http://<EIP>` loads the Wordle game.
-- [ ] `https://<yourdomain>` loads with a valid cert (if Certbot was run).
+- [ ] `https://<yourdomain>` loads the Wordle game with a valid cert.
+- [ ] `http://<yourdomain>` redirects to HTTPS automatically.
 - [ ] `pm2 list` shows the `wordle` process as `online`.
-- [ ] `sudo systemctl status nginx` is `active (running)`.
+- [ ] `sudo systemctl status caddy` is `active (running)`.
 - [ ] `/api/guess` responds (try a guess in the game UI).
 - [ ] Security group has **no port 22 rule**.
 - [ ] You're signed in via Identity Center, not root.
