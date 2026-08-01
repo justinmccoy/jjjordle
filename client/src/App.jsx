@@ -80,6 +80,21 @@ function Toast({ messages }) {
   );
 }
 
+// ─── Win photo ───────────────────────────────────────────────────────────────
+// sRGB JPEGs derived from the original P3/HDR photo (which desaturates on SDR
+// displays); the browser picks the small file on phones via srcset.
+function WinPhoto() {
+  return (
+    <img
+      src="/jj-960.jpg"
+      srcSet="/jj-480.jpg 480w, /jj-960.jpg 960w"
+      sizes="(max-width: 500px) 60vw, 280px"
+      alt="JJ"
+      className="win-photo"
+    />
+  );
+}
+
 // ─── Overlay ─────────────────────────────────────────────────────────────────
 function Overlay({ show, eyebrow, sentenceHTML, won, onClose, onRetry }) {
   const closeRef = useRef(null);
@@ -110,7 +125,7 @@ function Overlay({ show, eyebrow, sentenceHTML, won, onClose, onRetry }) {
               id="reveal-text"
               dangerouslySetInnerHTML={{ __html: sentenceHTML }}
             />
-            <img src="/jj.png" alt="JJ" className="win-photo" />
+            <WinPhoto />
           </>
         ) : (
           <>
@@ -155,7 +170,7 @@ function CompletionScreen({ show, sentenceHTML, won, onAdmire, onSeeResults }) {
         {sentenceHTML && (
           <p className="reveal-sentence" dangerouslySetInnerHTML={{ __html: sentenceHTML }} />
         )}
-        {won && <img src="/jj.png" alt="JJ" className="win-photo" />}
+        {won && <WinPhoto />}
 
         <button className="comp-admire" onClick={onAdmire}>Admire Puzzle</button>
         <button className="comp-results" onClick={onSeeResults}>Share Results</button>
