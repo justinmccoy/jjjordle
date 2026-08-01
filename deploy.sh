@@ -5,26 +5,40 @@ set -euo pipefail
 
 APP_DIR=/srv/wordle
 
-echo "==> Installing Node.js 20 + Caddy + git"
+echo "==> Installing Node.js 20 + git"
 if command -v dnf &>/dev/null; then
   dnf install -y nodejs npm git
-
-  # Install Caddy from the official COPR repo (Amazon Linux 2023 / RHEL-compatible)
-  dnf install -y 'dnf-command(copr)' || true
-  dnf copr enable -y @caddy/caddy || true
-  dnf install -y caddy
 else
   apt-get update -y
-  apt-get install -y nodejs npm git debian-keyring debian-archive-keyring apt-transport-https curl
-
-  # Install Caddy from the official APT repo
-  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-    | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-    | tee /etc/apt/sources.list.d/caddy-stable.list
-  apt-get update -y
-  apt-get install -y caddy
+  apt-get install -y nodejs npm git
 fi
+
+echo "==> Installing Caddy (official binary)"
+# Downloads the latest stable release for the current arch directly from GitHub.
+# Works on Amazon Linux 2023 (arm64 or x86_64) and Ubuntu — no package repo needed.
+ARCH=$(uname -m)
+case "$ARCH" in
+  aarch64) CADDY_ARCH="arm64" ;;
+  x86_64)  CADDY_ARCH="amd64" ;;
+  *)        echo "Unsupported arch: $ARCH"; exit 1 ;;
+esac
+CADDY_VERSION=$(curl -fsSL https://api.github.com/repos/caddyserver/caddy/releases/latest \
+  | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_${CADDY_ARCH}.tar.gz" \
+  | tar -xz -C /usr/local/bin caddy
+chmod +x /usr/local/bin/caddy
+
+# Create the caddy system user, dirs, and systemd unit (mirrors the official package layout)
+groupadd --system caddy 2>/dev/null || true
+useradd --system --gid caddy --no-create-home --home /var/lib/caddy \
+  --shell /usr/sbin/nologin --comment "Caddy web server" caddy 2>/dev/null || true
+mkdir -p /etc/caddy /var/lib/caddy /var/log/caddy
+chown -R caddy:caddy /var/lib/caddy /var/log/caddy
+
+# Install the systemd unit from the official Caddy repo
+curl -fsSL "https://raw.githubusercontent.com/caddyserver/dist/master/init/caddy.service" \
+  -o /etc/systemd/system/caddy.service
+systemctl daemon-reload
 
 echo "==> Installing PM2 globally"
 npm install -g pm2

@@ -183,11 +183,29 @@ npm run build --prefix client
 
 ### 6.3 Configure Caddy
 
-Edit the domain in the Caddyfile, then install and start it:
+Install the Caddy binary (the COPR package repo does not support Amazon Linux
+2023 aarch64), then deploy the config:
 
 ```sh
+# Install Caddy binary
+ARCH=$(uname -m); [ "$ARCH" = "aarch64" ] && CA=arm64 || CA=amd64
+VER=$(curl -fsSL https://api.github.com/repos/caddyserver/caddy/releases/latest \
+  | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v${VER}/caddy_${VER}_linux_${CA}.tar.gz" \
+  | sudo tar -xz -C /usr/local/bin caddy
+
+# Create system user + dirs + systemd unit
+sudo groupadd --system caddy 2>/dev/null || true
+sudo useradd --system --gid caddy --no-create-home --home /var/lib/caddy \
+  --shell /usr/sbin/nologin caddy 2>/dev/null || true
+sudo mkdir -p /etc/caddy /var/lib/caddy /var/log/caddy
+sudo chown -R caddy:caddy /var/lib/caddy /var/log/caddy
+curl -fsSL https://raw.githubusercontent.com/caddyserver/dist/master/init/caddy.service \
+  | sudo tee /etc/systemd/system/caddy.service
+sudo systemctl daemon-reload
+
+# Deploy config (replace yourdomain.com with your actual domain)
 sudo cp /srv/wordle/Caddyfile /etc/caddy/Caddyfile
-# Replace <yourdomain> with your actual domain:
 sudo sed -i 's/<yourdomain>/yourdomain.com/' /etc/caddy/Caddyfile
 
 sudo caddy validate --config /etc/caddy/Caddyfile   # test the config

@@ -20,11 +20,28 @@ set -euxo pipefail
 dnf update -y
 dnf install -y nodejs npm git make
 
-# Install Caddy from the official COPR repo
-dnf install -y 'dnf-command(copr)' || true
-dnf copr enable -y @caddy/caddy || true
-dnf install -y caddy
+# Install Caddy — download the official binary directly from GitHub.
+# The COPR repo does not have an Amazon Linux 2023 / aarch64 build.
+ARCH=$(uname -m)
+case "$ARCH" in
+  aarch64) CADDY_ARCH="arm64" ;;
+  x86_64)  CADDY_ARCH="amd64" ;;
+esac
+CADDY_VERSION=$(curl -fsSL https://api.github.com/repos/caddyserver/caddy/releases/latest \
+  | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_${CADDY_ARCH}.tar.gz" \
+  | tar -xz -C /usr/local/bin caddy
+chmod +x /usr/local/bin/caddy
 
+# Create system user, dirs, and systemd unit (mirrors the official package layout)
+groupadd --system caddy 2>/dev/null || true
+useradd --system --gid caddy --no-create-home --home /var/lib/caddy \
+  --shell /usr/sbin/nologin --comment "Caddy web server" caddy 2>/dev/null || true
+mkdir -p /etc/caddy /var/lib/caddy /var/log/caddy
+chown -R caddy:caddy /var/lib/caddy /var/log/caddy
+curl -fsSL "https://raw.githubusercontent.com/caddyserver/dist/master/init/caddy.service" \
+  -o /etc/systemd/system/caddy.service
+systemctl daemon-reload
 systemctl enable caddy
 
 # PM2 process manager for keeping the Node server alive across reboots.
