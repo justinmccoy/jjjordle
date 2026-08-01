@@ -125,6 +125,17 @@ function SentencePanel({ show, eyebrow, sentenceHTML, won }) {
   );
 }
 
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+const LS_PREFIX = "jjjordle_";
+
+function saveState(sessionKey, data) {
+  try { localStorage.setItem(LS_PREFIX + sessionKey, JSON.stringify(data)); } catch (_) {}
+}
+
+function loadState(sessionKey) {
+  try { return JSON.parse(localStorage.getItem(LS_PREFIX + sessionKey)); } catch (_) { return null; }
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 export default function App() {
   // rows × cols state: { letter, state }
@@ -142,10 +153,15 @@ export default function App() {
   const [sentencePanel, setSentencePanel] = useState(false);
   const [reveal, setReveal]         = useState({ eyebrow: "", sentenceHTML: "" });
   const [gameWon, setGameWon]       = useState(false);
+  const [sessionKey, setSessionKey] = useState(null);
 
   // stable refs to avoid stale closures in keydown handler
   const stateRef = useRef({});
   stateRef.current = { current, rowIndex, locked, over };
+
+  // stable ref so persist() always sees the latest sessionKey
+  const sessionKeyRef = useRef(null);
+  useEffect(() => { sessionKeyRef.current = sessionKey; }, [sessionKey]);
 
   // ── Toast helper ───────────────────────────────────────────────────────────
   const showToast = useCallback((text, duration = 1000) => {
@@ -188,6 +204,20 @@ export default function App() {
     });
   }, []);
 
+  // ── Persist current game state ─────────────────────────────────────────────
+  const persist = useCallback((overrideGrid, overrideRowIndex, overrideKeyStates, overrideOver, overrideWon, overrideSentencePanel) => {
+    const key = sessionKeyRef.current;
+    if (!key) return;
+    saveState(key, {
+      grid: overrideGrid,
+      rowIndex: overrideRowIndex,
+      keyStates: overrideKeyStates,
+      over: overrideOver,
+      won: overrideWon,
+      sentencePanel: overrideSentencePanel,
+    });
+  }, []);
+
   // ── Fetch reveal content (after game ends) ─────────────────────────────────
   const fetchReveal = useCallback(async () => {
     try {
@@ -198,6 +228,31 @@ export default function App() {
       setReveal({ eyebrow: "", sentenceHTML: "" });
     }
   }, []);
+
+  // ── Fetch session key on mount; then restore any saved state ───────────────
+  useEffect(() => {
+    fetch("/api/session-key")
+      .then(r => r.json())
+      .then(data => setSessionKey(data.key))
+      .catch(() => setSessionKey("default"));
+  }, []);
+
+  useEffect(() => {
+    if (!sessionKey) return;
+    const saved = loadState(sessionKey);
+    if (!saved) return;
+
+    setGrid(saved.grid);
+    setRowIndex(saved.rowIndex);
+    setKeyStates(saved.keyStates || {});
+    setOver(saved.over || false);
+    setGameWon(saved.won || false);
+    setSentencePanel(saved.sentencePanel || false);
+
+    if (saved.over) {
+      fetchReveal();
+    }
+  }, [sessionKey, fetchReveal]);
 
   // ── End game ───────────────────────────────────────────────────────────────
   const endGame = useCallback((won, delay, ri, rowLetters, rowStates) => {
@@ -261,23 +316,70 @@ export default function App() {
     const total = (COLS - 1) * DELAY + FLIP * 2;
 
     setTimeout(() => {
+      // Build the updated key states so we can persist them in one call
+      const rank = { absent: 0, present: 1, correct: 2 };
+      const nextKeyStates = ks => {
+        const next = { ...ks };
+        for (let i = 0; i < COLS; i++) {
+          const k = letters[i];
+          if (!k) continue;
+          if (rank[states[i]] > (rank[next[k]] ?? -1)) next[k] = states[i];
+        }
+        return next;
+      };
+
       paintKeyboard(letters, states);
       setLocked(false);
 
+      // Snapshot of grid with this row's final states for localStorage.
+      // Built directly from letters/states so we don't race with React state.
+      const snapshotRow = Array.from({ length: COLS }, (_, i) => ({
+        letter: letters[i], state: states[i], anim: null
+      }));
+
       if (won) {
         showToast(WIN_MESSAGES[ri]);
+        setKeyStates(prev => {
+          const updated = nextKeyStates(prev);
+          setGrid(prevGrid => {
+            const newGrid = prevGrid.map(r => r.map(c => ({ ...c })));
+            newGrid[ri] = snapshotRow;
+            persist(newGrid, ri + 1, updated, true, true, false);
+            return prevGrid;
+          });
+          return updated;
+        });
         endGame(true, total + 1200, ri, letters, states);
       } else if (ri === ROWS - 1) {
-        // Show error toast — we don't reveal the answer in the toast,
-        // it will be shown in the overlay via /api/reveal instead.
         showToast("Better luck next time!", 4000);
+        setKeyStates(prev => {
+          const updated = nextKeyStates(prev);
+          setGrid(prevGrid => {
+            const newGrid = prevGrid.map(r => r.map(c => ({ ...c })));
+            newGrid[ri] = snapshotRow;
+            persist(newGrid, ri + 1, updated, true, false, false);
+            return prevGrid;
+          });
+          return updated;
+        });
         endGame(false, 900, ri, letters, states);
       } else {
-        setRowIndex(ri + 1);
+        const nextRI = ri + 1;
+        setKeyStates(prev => {
+          const updated = nextKeyStates(prev);
+          setGrid(prevGrid => {
+            const newGrid = prevGrid.map(r => r.map(c => ({ ...c })));
+            newGrid[ri] = snapshotRow;
+            persist(newGrid, nextRI, updated, false, false, false);
+            return prevGrid;
+          });
+          return updated;
+        });
+        setRowIndex(nextRI);
         setCurrent("");
       }
     }, total);
-  }, [paintKeyboard, showToast, endGame]);
+  }, [paintKeyboard, showToast, endGame, persist]);
 
   // ── Submit guess ───────────────────────────────────────────────────────────
   const submit = useCallback(async () => {
@@ -364,6 +466,12 @@ export default function App() {
   const closeReveal = () => {
     setOverlay(false);
     setSentencePanel(true);
+    // Persist that the sentence panel is now showing
+    const key = sessionKeyRef.current;
+    if (key) {
+      const saved = loadState(key);
+      if (saved) saveState(key, { ...saved, sentencePanel: true });
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────

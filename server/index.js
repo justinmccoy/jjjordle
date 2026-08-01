@@ -4,6 +4,7 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 
 // ─── Config (all secret — never sent to the client) ───────────────────────
 const ANSWER = (process.env.WORDLE_ANSWER || "CRANE").toUpperCase().trim();
@@ -114,6 +115,15 @@ app.get("/api/reveal", (req, res) => {
 // Returns non-secret UI config (row/col counts, validate flag).
 app.get("/api/config", (req, res) => {
   res.json({ rows: 6, cols: 5, validateGuesses: VALIDATE_GUESSES });
+});
+
+// GET /api/session-key
+// Returns a stable opaque key derived from the current answer so the
+// client can scope its localStorage save to this specific puzzle.
+// The raw answer is never included.
+app.get("/api/session-key", (req, res) => {
+  const key = crypto.createHash("sha256").update(ANSWER).digest("hex").slice(0, 16);
+  res.json({ key });
 });
 
 // ─── Serve React build in production ──────────────────────────────────────
